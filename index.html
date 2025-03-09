@@ -16,7 +16,6 @@
       font-family: Arial, sans-serif;
     }
     #controls {
-      margin-bottom: 20px;
     }
     #gradient-container {
       width: 80%;
@@ -61,7 +60,15 @@
       font-size: 16px;
       margin-right: 10px;
     }
-
+    #custom-controls {
+      margin-top: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 10px;
+    }
+    #custom-controls input[disabled] {
+      background-color: #ccc;
+    }
     #swatch-container {
       display: flex;
       flex-wrap: wrap;
@@ -92,9 +99,68 @@
       font-size: 12px;
       color: #666;
     }
+    #comment-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    #comment-box {
+      position: absolute;
+      top: 70px;
+      left: 20px;
+      width: 300px;
+      height: 300px;
+      background-color: rgba(255, 255, 255, 0.9);
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      padding: 15px;
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-y: auto;
+      display: none;
+      z-index: 1000;
+    }
+    #comment-box h3 {
+      margin-top: 0;
+    }
+    .gradient-line {
+      display: inline-block;
+      width: 100px;
+      height: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+    }
+    .black-white-gradient {
+      background: linear-gradient(to right, #000, #fff);
+    }
+    .red-white-gradient {
+      background: linear-gradient(to right, #fff, #ff0000);
+    }
   </style>
 </head>
 <body>
+  <button id="comment-button">ридми</button>
+  <div id="comment-box">
+    <h3>халло!</h3>
+    <p>
+      В Точки можно вписать 0 для случайной генерации точек от 3 до 10.
+    <p>Яркость меняется от 0 до 100 подобным образом:</p>
+      <div class="gradient-line black-white-gradient"></div>
+    <p>Насыщенность меняется от 0 до 100 подобным образом:</p>
+      <div class="gradient-line red-white-gradient"></div>
+    </p>
+    <a href="https://imgur.com/a/SeBjgrP">Как выглядят схемы</a>
+  </div>
+
   <div id="controls">
     <label for="palette">Цвета:</label>
     <select id="palette">
@@ -103,6 +169,7 @@
       <option value="neutral">Нейтральные</option>
       <option value="vivid">Яркие</option>
       <option value="dark">Темные</option>
+      <option value="custom">Кастом</option>
     </select>
     <label for="scheme">Схема:</label>
     <select id="scheme">
@@ -118,9 +185,56 @@
     <input type="number" id="positions" min="3" max="10" value="5">
     <button id="generate-button">Сгенерировать</button>
   </div>
+  <div id="custom-controls">
+    <div>
+      <label>Яркость:</label>
+      <input type="number" id="lightness-min" min="0" max="100" value="0" disabled>
+      <input type="number" id="lightness-max" min="0" max="100" value="100" disabled>
+    </div>
+    <div>
+      <label>Насыщенность:</label>
+      <input type="number" id="saturation-min" min="0" max="100" value="0" disabled>
+      <input type="number" id="saturation-max" min="0" max="100" value="100" disabled>
+    </div>
+  </div>
   <div id="gradient-container"></div>
   <div id="swatch-container"></div>
   <script>
+    const paletteSelect = document.getElementById('palette');
+    const lightnessMinInput = document.getElementById('lightness-min');
+    const lightnessMaxInput = document.getElementById('lightness-max');
+    const saturationMinInput = document.getElementById('saturation-min');
+    const saturationMaxInput = document.getElementById('saturation-max');
+
+    const paletteRanges = {
+      default: { saturation: [0, 100], lightness: [0, 100] },
+      pastel: { saturation: [0, 70], lightness: [70, 100] },
+      dark: { saturation: [0, 100], lightness: [0, 30] },
+      neutral: { saturation: [0, 10], lightness: [40, 60] },
+      vivid: { saturation: [90, 100], lightness: [50, 60] },
+    };
+
+    paletteSelect.addEventListener('change', () => {
+      const selectedPalette = paletteSelect.value;
+      if (selectedPalette === 'custom') {
+        lightnessMinInput.disabled = false;
+        lightnessMaxInput.disabled = false;
+        saturationMinInput.disabled = false;
+        saturationMaxInput.disabled = false;
+      } else {
+        lightnessMinInput.disabled = true;
+        lightnessMaxInput.disabled = true;
+        saturationMinInput.disabled = true;
+        saturationMaxInput.disabled = true;
+
+        const { saturation, lightness } = paletteRanges[selectedPalette] || paletteRanges.default;
+        lightnessMinInput.value = lightness[0];
+        lightnessMaxInput.value = lightness[1];
+        saturationMinInput.value = saturation[0];
+        saturationMaxInput.value = saturation[1];
+      }
+    });
+
     function hslToHex(h, s, l) {
       l /= 100;
       const a = s * Math.min(l, 1 - l) / 100;
@@ -131,31 +245,22 @@
       };
       return `#${f(0)}${f(8)}${f(4)}`;
     }
+
     function generateColorsForPalette(baseHue, scheme, palette) {
       const colors = [];
       let saturationRange, lightnessRange;
-      switch (palette) {
-        case 'pastel':
-          saturationRange = [0, 70];
-          lightnessRange = [70, 100];
-          break;
-        case 'dark':
-          saturationRange = [0, 100];
-          lightnessRange = [0, 30];
-          break;
-        case 'neutral':
-          saturationRange = [0, 10];
-          lightnessRange = [40, 60];
-          break;
-        case 'vivid':
-          saturationRange = [100, 90];
-          lightnessRange = [50, 60];
-          break;
-        default:
-          saturationRange = [0, 100];
-          lightnessRange = [0, 100];
+
+      if (palette === 'custom') {
+        saturationRange = [parseInt(saturationMinInput.value), parseInt(saturationMaxInput.value)];
+        lightnessRange = [parseInt(lightnessMinInput.value), parseInt(lightnessMaxInput.value)];
+      } else {
+        const { saturation, lightness } = paletteRanges[palette] || paletteRanges.default;
+        saturationRange = saturation;
+        lightnessRange = lightness;
       }
+
       const randomInRange = (min, max) => Math.random() * (max - min) + min;
+
       switch (scheme) {
         case 'complementary':
           colors.push(hslToHex(baseHue, randomInRange(...saturationRange), randomInRange(...lightnessRange)));
@@ -195,6 +300,7 @@
       }
       return colors;
     }
+
     function makeColorsUnique(colors) {
       const uniqueColors = [...colors];
       for (let i = 0; i < uniqueColors.length; i++) {
@@ -234,48 +340,36 @@
       container.innerHTML = '';
       const palette = document.getElementById('palette').value;
       const scheme = document.getElementById('scheme').value;
-
       let numStops = parseInt(document.getElementById('positions').value);
-
       if (numStops === 0) {
         numStops = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
       }
-
       numStops = Math.max(3, Math.min(10, numStops));
-
       const baseHue = Math.random() * 360;
       let colors = generateColorsForPalette(baseHue, scheme, palette);
-
       while (colors.length < numStops) {
         colors = colors.concat(colors);
       }
       colors = colors.slice(0, numStops);
       colors = makeColorsUnique(colors);
-
       const stops = [];
       for (let i = 0; i < numStops; i++) {
         const position = Math.random();
         stops.push({ position, color: colors[i] });
-
         const dot = document.createElement('div');
         dot.classList.add('color-stop');
         dot.style.left = `${position * 100}%`;
         dot.style.backgroundColor = colors[i];
-
         const label = document.createElement('div');
         label.classList.add('color-label');
         label.style.left = `${position * 100}%`;
         label.textContent = colors[i];
-
         container.appendChild(dot);
         container.appendChild(label);
       }
-
       stops.sort((a, b) => a.position - b.position);
-
       const swatchContainer = document.getElementById('swatch-container');
       swatchContainer.innerHTML = '';
-
       stops.forEach(stop => {
         const swatch = document.createElement('div');
         swatch.className = 'color-swatch';
@@ -286,22 +380,29 @@
         const percentageLabel = document.createElement('div');
         percentageLabel.className = 'swatch-percentage';
         percentageLabel.textContent = `${Math.round(stop.position * 100)}%`;
-
         swatch.appendChild(colorBox);
         swatch.appendChild(hexLabel);
         swatch.appendChild(percentageLabel);
         swatchContainer.appendChild(swatch);
       });
-
       const gradientStops = stops.map(stop => `${stop.color} ${stop.position * 100}%`).join(', ');
       container.style.background = `linear-gradient(to right, ${gradientStops})`;
     }
 
-
     document.getElementById('generate-button').onclick = generateRandomGradient;
-
-
     window.onload = generateRandomGradient;
+
+    const commentButton = document.getElementById('comment-button');
+    const commentBox = document.getElementById('comment-box');
+    const closeComment = document.getElementById('close-comment');
+
+    commentButton.addEventListener('click', () => {
+      if (commentBox.style.display === 'block') {
+        commentBox.style.display = 'none';
+      } else {
+        commentBox.style.display = 'block';
+      }
+    });
   </script>
 </body>
 </html>
