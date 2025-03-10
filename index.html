@@ -13,8 +13,8 @@
       align-items: center;
       height: 100vh;
       background-color: #8E8EA3;
-      font-family: Arial, sans-serif;
-    }
+      font-family: Courier; font-size: 20px; font-style: normal; font-variant: normal; font-weight: 700; line-height: 23px; }
+
     #controls {
     }
     #gradient-container {
@@ -117,7 +117,7 @@
       top: 70px;
       left: 20px;
       width: 300px;
-      height: 300px;
+      height: 340px;
       background-color: rgba(255, 255, 255, 0.9);
       border: 1px solid #ccc;
       border-radius: 10px;
@@ -184,6 +184,9 @@
     <label for="positions">Точки:</label>
     <input type="number" id="positions" min="3" max="10" value="5">
     <button id="generate-button">Сгенерировать</button>
+    <label>
+      <input type="checkbox" id="show-dots-checkbox" checked> Точки
+    </label>
   </div>
   <div id="custom-controls">
     <div>
@@ -200,6 +203,81 @@
   <div id="gradient-container"></div>
   <div id="swatch-container"></div>
   <script>
+  const showDotsCheckbox = document.getElementById('show-dots-checkbox');
+
+  function generateRandomGradient() {
+    const container = document.getElementById('gradient-container');
+    container.innerHTML = '';
+    const palette = document.getElementById('palette').value;
+    const scheme = document.getElementById('scheme').value;
+    let numStops = parseInt(document.getElementById('positions').value);
+    if (numStops === 0) {
+      numStops = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
+    }
+    numStops = Math.max(3, Math.min(10, numStops));
+    const baseHue = Math.random() * 360;
+    let colors = generateColorsForPalette(baseHue, scheme, palette);
+    while (colors.length < numStops) {
+      colors = colors.concat(colors);
+    }
+    colors = colors.slice(0, numStops);
+    colors = makeColorsUnique(colors);
+    const stops = [];
+    for (let i = 0; i < numStops; i++) {
+      const position = Math.random();
+      stops.push({ position, color: colors[i] });
+      const dot = document.createElement('div');
+      dot.classList.add('color-stop');
+      dot.style.left = `${position * 100}%`;
+      dot.style.backgroundColor = colors[i];
+
+      const label = document.createElement('div');
+      label.classList.add('color-label');
+      label.style.left = `${position * 100}%`;
+      label.textContent = colors[i];
+
+      if (showDotsCheckbox.checked) {
+        dot.style.display = 'block';
+        label.style.display = 'block';
+      } else {
+        dot.style.display = 'none';
+        label.style.display = 'none';
+      }
+      container.appendChild(dot);
+      container.appendChild(label);
+    }
+    stops.sort((a, b) => a.position - b.position);
+    const swatchContainer = document.getElementById('swatch-container');
+    swatchContainer.innerHTML = '';
+    stops.forEach(stop => {
+      const swatch = document.createElement('div');
+      swatch.className = 'color-swatch';
+      const colorBox = document.createElement('div');
+      colorBox.className = 'swatch-color';
+      colorBox.style.backgroundColor = stop.color;
+      const hexLabel = document.createTextNode(stop.color);
+      const percentageLabel = document.createElement('div');
+      percentageLabel.className = 'swatch-percentage';
+      percentageLabel.textContent = `${Math.round(stop.position * 100)}%`;
+      swatch.appendChild(colorBox);
+      swatch.appendChild(hexLabel);
+      swatch.appendChild(percentageLabel);
+      swatchContainer.appendChild(swatch);
+    });
+    const gradientStops = stops.map(stop => `${stop.color} ${stop.position * 100}%`).join(', ');
+    container.style.background = `linear-gradient(to right, ${gradientStops})`;
+  }
+  showDotsCheckbox.addEventListener('change', () => {
+    const dots = document.querySelectorAll('#gradient-container .color-stop');
+    const labels = document.querySelectorAll('#gradient-container .color-label');
+    if (showDotsCheckbox.checked) {
+      dots.forEach(dot => dot.style.display = 'block');
+      labels.forEach(label => label.style.display = 'block');
+    } else {
+      dots.forEach(dot => dot.style.display = 'none');
+      labels.forEach(label => label.style.display = 'none');
+    }
+  });
     const paletteSelect = document.getElementById('palette');
     const lightnessMinInput = document.getElementById('lightness-min');
     const lightnessMaxInput = document.getElementById('lightness-max');
@@ -210,7 +288,7 @@
       default: { saturation: [0, 100], lightness: [0, 100] },
       pastel: { saturation: [0, 70], lightness: [70, 100] },
       dark: { saturation: [0, 100], lightness: [0, 30] },
-      neutral: { saturation: [0, 10], lightness: [40, 60] },
+      neutral: { saturation: [0, 25], lightness: [40, 80] },
       vivid: { saturation: [90, 100], lightness: [50, 60] },
     };
 
@@ -358,12 +436,28 @@
         stops.push({ position, color: colors[i] });
         const dot = document.createElement('div');
         dot.classList.add('color-stop');
+
+        const dotColor = colors[i];
+        dot.style.backgroundColor = dotColor;
+        const invertedColor = invertColor(dotColor);
+        dot.style.border = `2px solid ${invertedColor}`;
+        dot.style.boxShadow = `0 0 5px ${invertedColor}`;
+
         dot.style.left = `${position * 100}%`;
-        dot.style.backgroundColor = colors[i];
+
         const label = document.createElement('div');
         label.classList.add('color-label');
         label.style.left = `${position * 100}%`;
         label.textContent = colors[i];
+
+        if (showDotsCheckbox.checked) {
+          dot.style.display = 'block';
+          label.style.display = 'block';
+        } else {
+          dot.style.display = 'none';
+          label.style.display = 'none';
+        }
+
         container.appendChild(dot);
         container.appendChild(label);
       }
@@ -387,6 +481,14 @@
       });
       const gradientStops = stops.map(stop => `${stop.color} ${stop.position * 100}%`).join(', ');
       container.style.background = `linear-gradient(to right, ${gradientStops})`;
+    }
+
+    function invertColor(hex) {
+      hex = hex.replace('#', '');
+      const r = (255 - parseInt(hex.slice(0, 2), 16)).toString(16).padStart(2, '0');
+      const g = (255 - parseInt(hex.slice(2, 4), 16)).toString(16).padStart(2, '0');
+      const b = (255 - parseInt(hex.slice(4, 6), 16)).toString(16).padStart(2, '0');
+      return `#${r}${g}${b}`;
     }
 
     document.getElementById('generate-button').onclick = generateRandomGradient;
